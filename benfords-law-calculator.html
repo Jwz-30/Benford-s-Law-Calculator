@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Benford's Law Testing</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: white;
+      color: black;
+    }
+    #header {
+      background-color: #3498db; /* Blue */
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    #main {
+      margin: 20px auto;
+      width: 80%;
+    }
+    #chart {
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    .bar {
+      fill: steelblue;
+    }
+    .bar:hover {
+      fill: orange;
+    }
+    .line {
+      fill: none;
+      stroke: red;
+      stroke-width: 2;
+    }
+    .axis--x, .axis--y {
+      font-size: 14px;
+    }
+    .benford-number {
+      fill: red;
+      font-weight: bold;
+    }
+    .legend-item {
+      display: inline-block;
+      margin-right: 20px;
+    }
+    .legend-box {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 5px;
+    }
+    .legend-box.bar {
+      background-color: steelblue;
+    }
+    .legend-box.line {
+      background-color: transparent;
+      border-bottom: 2px solid red;
+    }
+
+    .analyze-btn{
+        background-color: white;
+        color: rgb(108, 117, 129);
+        margin-top: 15px;
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        border: solid;
+        border-width: 0.8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.25s;
+
+    }
+    .analyze-btn:hover{
+        padding-left: 25px;
+        padding-right: 25px;
+        
+    }
+
+    .dp-box {
+      position: absolute;
+      top: 50px;
+      right: 20px; /* Adjusted */
+      background-color: rgba(14, 168, 203, 0.8);
+      color:antiquewhite;
+      padding: 25px 40px;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 25px;
+    }
+
+    .max-min-box {
+      position: absolute;
+      top: 50px;
+      right: 200px; /* Adjusted */
+      background-color: rgba(14, 168, 203, 0.8);
+      color:antiquewhite;
+      padding: 25px 40px;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 25px;
+    }
+
+
+    #dataInput {
+      width: 800px;
+      height: 100px; /* Adjust the height as needed */
+      resize: vertical;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>Benford's Law Calculator</h1>
+    <p>Enter numbers separated by commas or new lines to see how well they follow Benford's Law.
+    </p>
+    <p>(To see the Benford's law number in a graph pess the "Analyze" button.)</p>
+    <textarea id="dataInput"></textarea>
+    <br>
+    <button class="analyze-btn" onclick="analyzeData()">Analyze</button>
+    <br>
+    <input type="file" id="fileInput">
+    <button class="analyze-btn" onclick="analyzeCSV()">Analyze CSV</button>
+  </div>
+
+  <div id="main">
+    <div id="chart"></div>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    var graphCount = 0;
+
+    function analyzeData() {
+      var inputData = document.getElementById('dataInput').value.trim();
+      if (inputData === "") {
+        // If no data is entered, generate default dataset based on Benford's Law
+        var frequencies = Array(9).fill(0).map((_, i) => Math.log10(1 + 1 / (i + 1)) * 100);
+        var data = Array(100).fill(0); // Array of 100 data points with value 0
+        plotBarChart(frequencies, data);
+      } else {
+        var data = inputData.split(/,\s*|\s+/).map(Number);
+        var frequencies = calculateFrequencies(data);
+        plotBarChart(frequencies, data);
+      }
+    }
+
+    function analyzeCSV() {
+      var fileInput = document.getElementById('fileInput');
+      if (fileInput.files.length > 0) {
+        var file = fileInput.files[0];
+        var reader = new FileReader();
+        reader.onload = function(event) {
+          var fileData = event.target.result;
+          var csvData = parseCSV(fileData);
+          var frequencies = calculateFrequencies(csvData);
+          plotBarChart(frequencies, csvData);
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    function parseCSV(csv) {
+      var lines = csv.split('\n');
+      var data = [];
+      lines.forEach(function(line) {
+        var values = line.split(',');
+        values.forEach(function(value) {
+          var num = parseFloat(value.trim());
+          if (!isNaN(num)) {
+            data.push(num);
+          }
+        });
+      });
+      return data;
+    }
+
+    function calculateFrequencies(data) {
+      var frequencies = Array(9).fill(0);
+      data.forEach(function(num) {
+        var firstDigit = parseInt(num.toString().charAt(0));
+        if (firstDigit > 0) {
+          frequencies[firstDigit - 1]++;
+        }
+      });
+
+      return frequencies;
+    }
+
+    function plotBarChart(data, inputData) {
+      graphCount++;
+
+      var chart = d3.select("#chart");
+      var margin = {top: 20, right: 30, bottom: 60, left: 60};
+      var width = 700 - margin.left - margin.right; /* Adjusted */
+      var height = 400 - margin.top - margin.bottom;
+
+      // Remove old boxes
+      chart.selectAll(".dp-box, .max-min-box").remove();
+
+      var container = chart.append("div")
+                          .attr("class", "chart");
+
+      var x = d3.scaleBand()
+                .rangeRound([0, width])
+                .padding(0.1)
+                .domain(data.map(function(d, i) { return i + 1; }));
+
+      var y = d3.scaleLinear()
+                .rangeRound([height, 0])
+                .domain([0, d3.max(data)]);
+
+      var svg = chart.append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+      svg.selectAll(".bar")
+         .data(data)
+         .enter().append("rect")
+         .attr("class", "bar")
+         .attr("x", function(d, i) { return x(i + 1); })
+         .attr("y", function(d) { return y(d); })
+         .attr("width", x.bandwidth())
+         .attr("height", function(d) { return height - y(d); })
+         .append("title")
+         .text(function(d, i) { return "Frequency: " + d + "\nPercentage: " + (d / inputData.length * 100).toFixed(2) + "%"; });
+
+      svg.append("g")
+         .attr("class", "axis axis--x")
+         .attr("transform", "translate(0," + height + ")")
+         .call(d3.axisBottom(x));
+
+      svg.append("g")
+         .attr("class", "axis axis--y")
+         .call(d3.axisLeft(y).ticks(5).tickFormat(d => (d / inputData.length * 100).toFixed(1) + "%"));
+
+      svg.selectAll(".benford-number")
+         .data([30.1, 17.6, 12.5, 9.7, 7.9, 6.7, 5.8, 5.1, 4.6])
+         .enter().append("text")
+         .attr("class", "benford-number")
+         .attr("x", function(d, i) { return x(i + 1) + x.bandwidth() / 2; })
+         .attr("y", function(d) { return y(d * (inputData.length / 100)); })
+         .attr("dy", "-0.5em")
+         .text(function(d) { return d.toFixed(1) + "%"; });
+
+      svg.append("path")
+         .datum([30.1, 17.6, 12.5, 9.7, 7.9, 6.7, 5.8, 5.1, 4.6])
+         .attr("class", "line")
+         .attr("d", d3.line()
+                      .x(function(_, i) { return x(i + 1) + x.bandwidth() / 2; })
+                      .y(function(d) { return y(d * (inputData.length / 100)); }));
+
+      // Add label for the graph
+      svg.append("text")
+         .attr("x", width / 2)
+         .attr("y", height + margin.bottom - 7.5)
+         .attr("text-anchor", "middle")
+         .style("font-weight", "bold")
+         .text("Graph " + graphCount);
+
+      // Add legend
+      var legend = svg.append("g")
+                      .attr("class", "legend")
+                      .attr("transform", "translate(0," + (height + margin.bottom - 30) + ")");
+      legend.append("g")
+            .attr("class", "legend-item")
+            .append("rect")
+            .attr("class", "legend-box bar")
+            .attr("x", 35)
+            .attr("y", 0)
+            .attr("width", 10)
+            .attr("height", 10);
+
+      legend.append("g")
+            .attr("class", "legend-item")
+            .append("line")
+            .attr("class", "legend-box line")
+            .attr("x1", 380)
+            .attr("y1", 5)
+            .attr("x2", 395)
+            .attr("y2", 5)
+            .attr("stroke", "red")
+            .attr("stroke-width", 2);
+
+      legend.append("g")
+            .attr("class", "legend-item")
+            .append("text")
+            .attr("x", 50)
+            .attr("y", 5)
+            .attr("dy", "0.35em")
+            .text("Data Distribution (Bars)");
+
+      legend.append("g")
+            .attr("class", "legend-item")
+            .append("text")
+            .attr("x", 400)
+            .attr("y", 5)
+            .attr("dy", "0.35em")
+            .text("Benford's Law (Line)");
+
+      // Add number of data points box
+      var dpBox = chart.append("div")
+                        .attr("class", "dp-box")
+                        .text("Number of Data Points: " + inputData.length)
+                        .style("top", "20px")
+                        .style("left", "725px")
+                        .style("right","20px");
+
+      // Add maximum value box
+      var maxBox = chart.append("div")
+                        .attr("class", "max-min-box")
+                        .text("Maximum Value: " + d3.max(inputData))
+                        .style("top", "150px")
+                        .style("left", "725px")
+                        .style("right","20px");
+      // Add minimum value box
+      var minBox = chart.append("div")
+                        .attr("class", "max-min-box")
+                        .text("Minimum Value: " + d3.min(inputData))
+                        .style("top", "278px")
+                        .style("left", "725px")
+                        .style("right","20px");
+    }
+
+    // Allow analyzing data on pressing Enter key
+    document.getElementById("dataInput").addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        analyzeData();
+      }
+    });
+  </script>
+</body>
+</html>
