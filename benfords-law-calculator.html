@@ -121,7 +121,7 @@
 <body>
   <div id="header">
     <h1>Benford's Law Calculator</h1>
-    <p>Enter numbers separated by commas or new lines to see how well they follow Benford's Law.
+    <p>Enter numbers separated by a space or new lines to see how well they follow Benford's Law.
     </p>
     <p>(To see the Benford's law number in a graph pess the "Analyze" button.)</p>
     <textarea id="dataInput"></textarea>
@@ -141,14 +141,14 @@
     var graphCount = 0;
 
     function analyzeData() {
-      var inputData = document.getElementById('dataInput').value.trim();
+      var inputData = document.getElementById('dataInput').value.trim().replace(/,/g, '');
       if (inputData === "") {
         // If no data is entered, generate default dataset based on Benford's Law
         var frequencies = Array(9).fill(0).map((_, i) => Math.log10(1 + 1 / (i + 1)) * 100);
         var data = Array(100).fill(0); // Array of 100 data points with value 0
         plotBarChart(frequencies, data);
       } else {
-        var data = inputData.split(/,\s*|\s+/).map(Number);
+        var data = inputData.split(/\s+/).map(Number);
         var frequencies = calculateFrequencies(data);
         plotBarChart(frequencies, data);
       }
@@ -175,7 +175,7 @@
       lines.forEach(function(line) {
         var values = line.split(',');
         values.forEach(function(value) {
-          var num = parseFloat(value.trim());
+          var num = parseFloat(value.trim().replace(/,/g, ''));
           if (!isNaN(num)) {
             data.push(num);
           }
